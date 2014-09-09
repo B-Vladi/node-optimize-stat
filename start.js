@@ -1,29 +1,84 @@
 'use strict';
-
-var log = '';
-var spawn = require('child_process').spawn;
-var test = spawn('node', ['--trace-opt', '--trace-deopt', '--trace-inlining', './benchmark/Response.js', {
-    env: process.env
-}]);
+var EventEmitter = require('events').EventEmitter;
+var Stat = require('./Stat.js');
 
 var MASK_RECOMPILATION = /\[marking ([^\n]+?) (?:[^\n]+?) for recompilation, reason: (hot and stable|not much type info but very hot|small function|[^,]+?), ICs with typeinfo: ([^\]]+?)\]/;
 var MASK_OPTIMIZING = /\[optimizing: \]/;
 
-test.stdout.setEncoding('utf8');
+var STATE_PENDING = 'pending';
+var STATE_OPTIMIZING = 'optimizing';
 
-test.stdout.on('data', function(data) {
-    log += data;
-});
+var spawn = require('child_process').spawn;
 
-test.stdout.on('end', function() {
-    var logStack = log.split(/\r\n|\r|\n/);
+function Test(path) {
+    EventEmitter.call(this);
+
+    this.stat = new Stat();
+    this._state = STATE_PENDING;
+
+    this._chank = '';
+    this._process = spawn('node', ['--trace-opt', '--trace-deopt', '--trace-inlining', path, {
+        env: process.env
+    }]);
+
+    this._process.stdout
+        .on('data', this._onData.bind(this))
+        .on('end', this._onEnd.bind(this))
+        .setEncoding(this.encoding);
+
+    this._process.stderr
+        .on('data', this._onError.bind(this));
+
+    return this;
+}
+
+Test.Stat = Stat;
+
+Test.prototype = new EventEmitter();
+
+Test.prototype.encoding = 'utf8';
+
+Test.prototype._onData = function (data) {
+    var index = data.lastIndexOf('\n');
+
+    if (index >= 0) {
+        this._chank = data.substr(index);
+        this._processingData(this._chank + data.substring(0, index));
+    } else {
+        this._chank += data;
+    }
+};
+
+Test.prototype._onEnd = function (data) {
+    this._processingData(this._chank + data);
+    this._chank = '';
+};
+
+Test.prototype._onError = function (error) {
+    console.log(error);
+};
+
+Test.prototype._processingData = function (data) {
+    var logStack = data.split(/\r\n|\r|\n/);
     var index = 0;
     var length = logStack.length;
     var line;
     var matches;
+    var state = this._state;
 
     while (index < length) {
         line = logStack[index++];
+
+        switch (state) {
+            case 'pending':
+
+                break;
+
+            case 'optimizing':
+
+                break;
+        }
+
         matches = MASK_RECOMPILATION.exec(line);
 
         if (matches && matches.length) {
@@ -32,8 +87,6 @@ test.stdout.on('end', function() {
     }
 
     console.log(JSON.stringify(logStack));
-});
+};
 
-test.stderr.on('data', function(data) {
-    console.log('Error: ' + data);
-});
+module.exports = Test;
