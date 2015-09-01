@@ -1,6 +1,7 @@
 'use strict';
 var EventEmitter = require('events').EventEmitter;
-var Stat = require('./Stat.js');
+var path = require('path');
+var Stat = require('./lib/Stat.js');
 
 var MASK_RECOMPILATION = /\[marking ([^\n]+?) (?:[^\n]+?) for recompilation, reason: (hot and stable|not much type info but very hot|small function|[^,]+?), ICs with typeinfo: ([^\]]+?)\]/;
 var MASK_OPTIMIZING = /\[optimizing: \]/;
@@ -42,20 +43,20 @@ Test.prototype._onData = function (data) {
     var index = data.lastIndexOf('\n');
 
     if (index >= 0) {
-        this._chank = data.substr(index);
         this._processingData(this._chank + data.substring(0, index));
+        this._chank = data.substr(index);
     } else {
         this._chank += data;
     }
 };
 
 Test.prototype._onEnd = function (data) {
-    this._processingData(this._chank + data);
+    this._processingData(this._chank + (data || ''));
     this._chank = '';
 };
 
 Test.prototype._onError = function (error) {
-    console.log(error);
+    console.log(error.toString());
 };
 
 Test.prototype._processingData = function (data) {
@@ -66,7 +67,7 @@ Test.prototype._processingData = function (data) {
     var matches;
     var state = this._state;
 
-    while (index < length) {
+    /*while (index < length) {
         line = logStack[index++];
 
         switch (state) {
@@ -84,9 +85,9 @@ Test.prototype._processingData = function (data) {
         if (matches && matches.length) {
             console.log('Marking %s for recompilation, reason: %s, ICs with typeinfo: %s', matches[1], matches[2], matches[3]);
         }
-    }
+    }*/
 
-    console.log(JSON.stringify(logStack));
+    console.log(data);
 };
 
 module.exports = Test;
